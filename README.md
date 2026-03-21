@@ -77,6 +77,19 @@ SLEUTHER_TIMEOUT=15
 | `..._OLLAMA_URL`    | `http://localhost:11434` | Ollama endpoint         |
 | `..._TIMEOUT`       | `15`                     | Request timeout (secs)  |
 
+### Rich Output with Glow
+
+Install [glow](https://github.com/charmbracelet/glow) for beautifully rendered markdown output in your terminal. Sleuther auto-detects glow and uses it when available — no config needed. Without glow, output falls back to basic ANSI formatting.
+
+```bash
+# macOS
+brew install glow
+
+# Linux
+sudo apt install glow        # Debian/Ubuntu
+sudo pacman -S glow           # Arch
+```
+
 ---
 
 ## Language Detection
@@ -111,6 +124,35 @@ sleuther/
 │   └── ollama-helper         # Setup helper CLI
 ├── install.sh
 └── README.md
+```
+
+---
+
+## Clear Cache
+
+Sleuther caches LLM responses for 1 hour to avoid repeated queries for the same error. To clear the cache:
+
+```bash
+rm -rf ${TMPDIR:-/tmp}/sleuther-cache
+```
+
+---
+
+## Uninstall
+
+```bash
+# 1. Remove sleuther from the plugins list in ~/.zshrc
+plugins=(... )  # remove 'sleuther'
+
+# 2. Delete the plugin directory
+rm -rf ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/sleuther
+
+# 3. Remove config and cache (optional)
+rm -rf ~/.config/sleuther
+rm -rf ${TMPDIR:-/tmp}/sleuther-cache
+
+# 4. Restart your shell
+source ~/.zshrc
 ```
 
 ---
