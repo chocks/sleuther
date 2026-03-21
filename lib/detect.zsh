@@ -51,14 +51,16 @@ _sl_detect_language() {
 }
 
 _sl_system_prompt() {
+    local role
     case "$1" in
-        ruby)   echo "You are a Ruby on Rails debugging expert." ;;
-        go)     echo "You are a Go debugging expert." ;;
-        python) echo "You are a Python debugging expert." ;;
-        node)   echo "You are a Node.js and JavaScript debugging expert." ;;
-        rust)   echo "You are a Rust debugging expert." ;;
-        docker) echo "You are a Docker debugging expert." ;;
-        git)    echo "You are a Git debugging expert." ;;
-        *)      echo "You are a CLI debugging assistant." ;;
+        ruby)   role="You are a Ruby on Rails debugging expert." ;;
+        go)     role="You are a Go debugging expert." ;;
+        python) role="You are a Python debugging expert." ;;
+        node)   role="You are a Node.js and JavaScript debugging expert." ;;
+        rust)   role="You are a Rust debugging expert." ;;
+        docker) role="You are a Docker debugging expert." ;;
+        git)    role="You are a Git debugging expert." ;;
+        *)      role="You are a CLI debugging assistant." ;;
     esac
+    echo "${role} If 'command not found', check for typos first — suggest the corrected command. Be concise."
 }
