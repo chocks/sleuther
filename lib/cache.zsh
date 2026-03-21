@@ -31,6 +31,6 @@ _sl_cache_get() {
 
 _sl_cache_set() {
     local key=$(_sl_cache_key "$1")
-    mkdir -p "$_SL_CACHE_DIR" 2>/dev/null
+    mkdir -p "$_SL_CACHE_DIR" 2>/dev/null && chmod 700 "$_SL_CACHE_DIR" 2>/dev/null
     echo "$2" > "$_SL_CACHE_DIR/$key"
 }

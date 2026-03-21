@@ -12,10 +12,27 @@ typeset -g SLEUTHER_AUTO_RUN=false
 typeset -g SLEUTHER_OLLAMA_URL="http://localhost:11434"
 typeset -g SLEUTHER_TIMEOUT=30
 
-# Load user overrides if present
+# Load user overrides if present (safe key-value parsing, no source/eval)
 local _sl_config="${XDG_CONFIG_HOME:-$HOME/.config}/sleuther/config"
 if [[ -f "$_sl_config" ]]; then
-    source "$_sl_config"
+    local _sl_line _sl_key _sl_val
+    while IFS='=' read -r _sl_key _sl_val || [[ -n "$_sl_key" ]]; do
+        _sl_key="${_sl_key%%[[:space:]]}"
+        _sl_key="${_sl_key##[[:space:]]}"
+        _sl_val="${_sl_val%%[[:space:]]}"
+        _sl_val="${_sl_val##[[:space:]]}"
+        # Strip surrounding quotes
+        _sl_val="${_sl_val#\"}" && _sl_val="${_sl_val%\"}"
+        _sl_val="${_sl_val#\'}" && _sl_val="${_sl_val%\'}"
+        # Skip comments and blank lines
+        [[ -z "$_sl_key" || "$_sl_key" == \#* ]] && continue
+        case "$_sl_key" in
+            SLEUTHER_MODEL)      SLEUTHER_MODEL="$_sl_val" ;;
+            SLEUTHER_AUTO_RUN)   SLEUTHER_AUTO_RUN="$_sl_val" ;;
+            SLEUTHER_OLLAMA_URL) SLEUTHER_OLLAMA_URL="$_sl_val" ;;
+            SLEUTHER_TIMEOUT)    SLEUTHER_TIMEOUT="$_sl_val" ;;
+        esac
+    done < "$_sl_config"
 fi
 
 # ─── Internals ───────────────────────────────────────────────────────────────
@@ -25,6 +42,7 @@ typeset -g _SL_MAX_OUTPUT=1500
 typeset -g _SL_DEBOUNCE=5
 typeset -g _SL_CACHE_DIR="${TMPDIR:-/tmp}/sleuther-cache"
 mkdir -p "$_SL_CACHE_DIR" 2>/dev/null
+chmod 700 "$_SL_CACHE_DIR" 2>/dev/null
 
 # ─── Source modules ──────────────────────────────────────────────────────────
 source "$SLEUTHER_DIR/lib/colors.zsh"

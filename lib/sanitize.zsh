@@ -64,7 +64,7 @@ _sl_reject_count() {
 _sl_reject_increment() {
     local key="$1"
     local file="$_SL_CACHE_DIR/reject-$key"
-    mkdir -p "$_SL_CACHE_DIR" 2>/dev/null
+    mkdir -p "$_SL_CACHE_DIR" 2>/dev/null && chmod 700 "$_SL_CACHE_DIR" 2>/dev/null
     local count
     count=$(_sl_reject_count "$key")
     echo $(( count + 1 )) > "$file"
