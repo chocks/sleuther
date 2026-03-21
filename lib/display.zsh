@@ -7,7 +7,7 @@ _sl_extract_command() {
 
     # Try markdown format: ### Suggested Command followed by fenced code block
     local cmd
-    cmd=$(echo "$response" | awk '/^### Suggested Command/{found=1;next} found && /^```/{if(ready){exit}else{ready=1;next}} found && ready{print;exit}')
+    cmd=$(printf '%s' "$response" | awk '/^### Suggested Command/{found=1;next} found && /^```/{if(ready){exit}else{ready=1;next}} found && ready && /^[^#]/{print;exit}')
 
     # Fallback: legacy format (Next command: ...)
     if [[ -z "$cmd" ]]; then

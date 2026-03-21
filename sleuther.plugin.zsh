@@ -77,7 +77,7 @@ typeset -g _SL_RESPONSE_FORMAT='Respond in this EXACT format using markdown head
 
 ### Suggested Command
 ```
-<single shell command>
+<exactly ONE shell command, no comments, no blank lines>
 ```'
 
 # ─── Analysis ────────────────────────────────────────────────────────────────
