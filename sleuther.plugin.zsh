@@ -10,7 +10,7 @@ typeset -g SLEUTHER_DIR="${0:A:h}"
 typeset -g SLEUTHER_MODEL="qwen2.5-coder:7b"
 typeset -g SLEUTHER_AUTO_RUN=false
 typeset -g SLEUTHER_OLLAMA_URL="http://localhost:11434"
-typeset -g SLEUTHER_TIMEOUT=15
+typeset -g SLEUTHER_TIMEOUT=30
 
 # Load user overrides if present
 local _sl_config="${XDG_CONFIG_HOME:-$HOME/.config}/sleuther/config"
@@ -112,7 +112,10 @@ $_SL_RESPONSE_FORMAT"
 
     printf "\r\033[K" >&2
 
-    [[ -z "$llm_response" ]] && return
+    if [[ -z "$llm_response" ]]; then
+        printf "${_SL_DIM}  sleuther: no response (model may be loading, try again)${_SL_RESET}\n" >&2
+        return
+    fi
 
     _sl_cache_set "$cache_input" "$llm_response"
     _sl_display "$llm_response"
