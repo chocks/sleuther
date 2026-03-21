@@ -53,15 +53,22 @@ _sl_copy_to_clipboard() {
 _sl_reject_count() {
     local key="$1"
     local file="$_SL_CACHE_DIR/reject-$key"
-    [[ -f "$file" ]] && cat "$file" || echo 0
+    if [[ -f "$file" ]]; then
+        cat "$file"
+    else
+        echo 0
+    fi
+    return 0
 }
 
 _sl_reject_increment() {
     local key="$1"
     local file="$_SL_CACHE_DIR/reject-$key"
     mkdir -p "$_SL_CACHE_DIR" 2>/dev/null
-    local count=$(_sl_reject_count "$key")
+    local count
+    count=$(_sl_reject_count "$key")
     echo $(( count + 1 )) > "$file"
+    return 0
 }
 
 # Offer sanitized error for external help
