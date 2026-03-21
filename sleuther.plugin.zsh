@@ -68,7 +68,7 @@ Exit code: $exit_code"
 }
 
 # ─── Shared prompt format ─────────────────────────────────────────────────────
-typeset -gr _SL_RESPONSE_FORMAT='Respond in this EXACT format using markdown headers:
+typeset -g _SL_RESPONSE_FORMAT='Respond in this EXACT format using markdown headers:
 ### Root Cause
 <one sentence>
 
