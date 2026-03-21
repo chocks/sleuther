@@ -32,6 +32,7 @@ source "$SLEUTHER_DIR/lib/render.zsh"
 source "$SLEUTHER_DIR/lib/detect.zsh"
 source "$SLEUTHER_DIR/lib/ollama.zsh"
 source "$SLEUTHER_DIR/lib/cache.zsh"
+source "$SLEUTHER_DIR/lib/sanitize.zsh"
 source "$SLEUTHER_DIR/lib/display.zsh"
 
 # ─── preexec: record command ────────────────────────────────────────────────
@@ -99,9 +100,10 @@ $_SL_RESPONSE_FORMAT"
 
     # Cache check
     local cache_input="$cmd|$output"
+    local cache_key=$(_sl_cache_key "$cache_input")
     local cached
     if cached=$(_sl_cache_get "$cache_input"); then
-        _sl_display "$cached"
+        _sl_display "$cached" "$cmd" "$exit_code" "$output" "$cache_key"
         return
     fi
 
@@ -118,7 +120,7 @@ $_SL_RESPONSE_FORMAT"
     fi
 
     _sl_cache_set "$cache_input" "$llm_response"
-    _sl_display "$llm_response"
+    _sl_display "$llm_response" "$cmd" "$exit_code" "$output" "$cache_key"
 }
 
 # ─── Manual command ──────────────────────────────────────────────────────────
@@ -145,6 +147,9 @@ $input
 
 $_SL_RESPONSE_FORMAT"
 
+    local cache_input="sleuther|$input"
+    local cache_key=$(_sl_cache_key "$cache_input")
+
     printf "\n${_SL_DIM}  Analyzing...${_SL_RESET}" >&2
     local llm_response
     llm_response=$(_sl_query_ollama "$system_prompt" "$user_prompt")
@@ -155,7 +160,7 @@ $_SL_RESPONSE_FORMAT"
         echo "${_SL_DIM}Start it: ollama serve && ollama pull $SLEUTHER_MODEL${_SL_RESET}"
         return 1
     fi
-    _sl_display "$llm_response"
+    _sl_display "$llm_response" "sleuther $input" "" "$input" "$cache_key"
 }
 
 # ─── Register hooks ─────────────────────────────────────────────────────────

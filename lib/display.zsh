@@ -20,8 +20,9 @@ _sl_extract_command() {
     return 1
 }
 
+# Usage: _sl_display "$response" "$cmd" "$exit_code" "$output" "$cache_key"
 _sl_display() {
-    local response="$1"
+    local response="$1" orig_cmd="$2" exit_code="$3" orig_output="$4" cache_key="$5"
 
     # Extract command before rendering
     local next_cmd
@@ -45,6 +46,12 @@ _sl_display() {
             if [[ "$answer" == [yY] ]]; then
                 printf "  ${_SL_DIM}→ %s${_SL_RESET}\n\n" "$next_cmd"
                 eval "$next_cmd"
+            elif [[ -n "$cache_key" ]]; then
+                _sl_reject_increment "$cache_key"
+                local count=$(_sl_reject_count "$cache_key")
+                if (( count >= 2 )); then
+                    _sl_offer_sanitized "$orig_cmd" "$exit_code" "$orig_output"
+                fi
             fi
         fi
     fi

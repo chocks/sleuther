@@ -119,6 +119,7 @@ sleuther/
 │   ├── detect.zsh            # Language detection
 │   ├── ollama.zsh            # Ollama API client
 │   ├── cache.zsh             # Response cache (1hr TTL)
+│   ├── sanitize.zsh          # Strip sensitive info for sharing
 │   └── display.zsh           # Output formatting + y/n prompt
 ├── bin/
 │   └── ollama-helper         # Setup helper CLI
