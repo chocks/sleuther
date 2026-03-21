@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# bin/ollama-helper — Setup helper for sleuther
+set -euo pipefail
+
+MODEL="${SLEUTHER_MODEL:-qwen2.5-coder:7b}"
+OLLAMA_URL="${SLEUTHER_OLLAMA_URL:-http://localhost:11434}"
+
+R=$'\033[0;31m' G=$'\033[0;32m' Y=$'\033[0;33m' C=$'\033[0;36m'
+B=$'\033[1m' D=$'\033[2m' X=$'\033[0m'
+
+check_ollama() {
+    printf "${D}  Checking Ollama...${X} "
+    if curl -s --max-time 3 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
+        printf "${G}✓ Running${X}\n"; return 0
+    else
+        printf "${R}✗ Not reachable at %s${X}\n" "$OLLAMA_URL"; return 1
+    fi
+}
+
+check_model() {
+    printf "${D}  Checking model %s...${X} " "$MODEL"
+    if curl -s --max-time 5 "$OLLAMA_URL/api/tags" 2>/dev/null | \
+        python3 -c 'import json,sys; model=sys.argv[1]; d=json.load(sys.stdin); names=[m.get("name","") for m in d.get("models",[])]; sys.exit(0 if model in names else 1)' "$MODEL" \
+        >/dev/null 2>&1; then
+        printf "${G}✓ Available${X}\n"; return 0
+    else
+        printf "${R}✗ Not found${X}\n"; return 1
+    fi
+}
+
+check_deps() {
+    printf "${D}  Dependencies:${X}\n"
+    local ok=true
+    for cmd in curl python3 zsh; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            printf "    ${G}✓${X} %s\n" "$cmd"
+        else
+            printf "    ${R}✗${X} %s ${D}(required)${X}\n" "$cmd"
+            ok=false
+        fi
+    done
+    $ok
+}
+
+setup() {
+    echo ""
+    echo "${B}${C}  sleuther — Oh My Zsh Plugin Setup${X}"
+    echo "${D}  ──────────────────────────────────────${X}"
+    echo ""
+    check_deps || true
+    echo ""
+    if ! check_ollama; then
+        echo ""
+        echo "${Y}  Start Ollama first:${X}  ${B}ollama serve${X}"
+        echo "${D}  Install: https://ollama.com/download${X}"
+        return 1
+    fi
+    if ! check_model; then
+        echo ""
+        echo "${Y}  Pulling model...${X}"
+        ollama pull "$MODEL"
+    fi
+    echo ""
+    echo "${G}${B}  ✓ Ready!${X}"
+    echo ""
+    echo "  Installation (pick one):"
+    echo ""
+    echo "  ${B}Option A — git clone:${X}"
+    echo "    git clone https://github.com/chocks/sleuther \\"
+    echo "      \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/sleuther"
+    echo ""
+    echo "  ${B}Option B — manual copy:${X}"
+    echo "    cp -r sleuther/ \${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/"
+    echo ""
+    echo "  Then add to ${B}~/.zshrc${X}:"
+    echo "    plugins=(... ${C}sleuther${X} ...)"
+    echo ""
+}
+
+case "${1:-setup}" in
+    setup) setup ;;
+    check) check_deps && check_ollama && check_model ;;
+    pull)  ollama pull "$MODEL" ;;
+    *)     echo "Usage: $0 [setup|check|pull]"; exit 1 ;;
+esac
