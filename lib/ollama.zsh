@@ -28,7 +28,7 @@ ENDJSON
 
     [[ $? -ne 0 || -z "$response" ]] && return 1
 
-    echo "$response" | python3 -c "
+    printf '%s' "$response" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
