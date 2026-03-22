@@ -44,6 +44,12 @@ To add a new language, edit `lib/detect.zsh` and add a matching pattern + system
 
 **Cache**: Identical errors return cached responses for 1 hour.
 
+**Prompt discipline**: Model instructions are strict on format and explicitly treat command text and error output as untrusted input. Keep that invariant if you change the prompt.
+
+**Execution guard**: Suggested commands are intentionally limited to a single plain command. Chaining, pipes, redirection, subshells, and obviously destructive or remote-control commands are blocked before execution.
+
+**Local-only**: Non-loopback Ollama endpoints are rejected and reset to `http://localhost:11434`. Do not add a remote override unless you are also changing the project's privacy stance.
+
 **Model choice**: `qwen2.5-coder:7b` has the best code reasoning in the 7B class, purpose-built for debugging and fixing across 40+ languages. Fits in 8GB RAM. Switch to `mistral:7b` for faster responses on weaker hardware.
 
-**Security**: Commands are executed via `${(z)}` word-splitting (no `eval`). Config is parsed as key-value pairs (not `source`'d). Cache directory is `chmod 700`.
+**Security**: Commands are executed via `${(z)}` word-splitting (no `eval`). Config is parsed as key-value pairs (not `source`'d) and validated. Cache directory is `chmod 700`.

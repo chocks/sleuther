@@ -11,16 +11,33 @@ typeset -g SLEUTHER_MODEL="qwen2.5-coder:7b"
 typeset -g SLEUTHER_AUTO_RUN=false
 typeset -g SLEUTHER_OLLAMA_URL="http://localhost:11434"
 typeset -g SLEUTHER_TIMEOUT=30
+typeset -g SLEUTHER_KEEP_ALIVE="10m"
+
+_sl_trim() {
+    local value="$1"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+
+_sl_is_loopback_url() {
+    local url="$1"
+    [[ "$url" == http://localhost(|:*) || "$url" == http://127.0.0.1(|:*) || \
+       "$url" == http://[::1](|:*) || "$url" == https://localhost(|:*) || \
+       "$url" == https://127.0.0.1(|:*) || "$url" == https://[::1](|:*) ]]
+}
+
+_sl_warn_config() {
+    printf "  sleuther: %s\n" "$1" >&2
+}
 
 # Load user overrides if present (safe key-value parsing, no source/eval)
 local _sl_config="${XDG_CONFIG_HOME:-$HOME/.config}/sleuther/config"
 if [[ -f "$_sl_config" ]]; then
     local _sl_line _sl_key _sl_val
     while IFS='=' read -r _sl_key _sl_val || [[ -n "$_sl_key" ]]; do
-        _sl_key="${_sl_key%%[[:space:]]}"
-        _sl_key="${_sl_key##[[:space:]]}"
-        _sl_val="${_sl_val%%[[:space:]]}"
-        _sl_val="${_sl_val##[[:space:]]}"
+        _sl_key=$(_sl_trim "$_sl_key")
+        _sl_val=$(_sl_trim "$_sl_val")
         # Strip surrounding quotes
         _sl_val="${_sl_val#\"}" && _sl_val="${_sl_val%\"}"
         _sl_val="${_sl_val#\'}" && _sl_val="${_sl_val%\'}"
@@ -31,8 +48,29 @@ if [[ -f "$_sl_config" ]]; then
             SLEUTHER_AUTO_RUN)   SLEUTHER_AUTO_RUN="$_sl_val" ;;
             SLEUTHER_OLLAMA_URL) SLEUTHER_OLLAMA_URL="$_sl_val" ;;
             SLEUTHER_TIMEOUT)    SLEUTHER_TIMEOUT="$_sl_val" ;;
+            SLEUTHER_KEEP_ALIVE) SLEUTHER_KEEP_ALIVE="$_sl_val" ;;
         esac
     done < "$_sl_config"
+fi
+
+if [[ "$SLEUTHER_AUTO_RUN" != "true" && "$SLEUTHER_AUTO_RUN" != "false" ]]; then
+    _sl_warn_config "invalid SLEUTHER_AUTO_RUN value '$SLEUTHER_AUTO_RUN'; using false"
+    SLEUTHER_AUTO_RUN=false
+fi
+
+if [[ ! "$SLEUTHER_TIMEOUT" == <-> ]] || (( SLEUTHER_TIMEOUT <= 0 || SLEUTHER_TIMEOUT > 120 )); then
+    _sl_warn_config "invalid SLEUTHER_TIMEOUT value '$SLEUTHER_TIMEOUT'; using 30"
+    SLEUTHER_TIMEOUT=30
+fi
+
+if [[ -z "$SLEUTHER_KEEP_ALIVE" ]]; then
+    _sl_warn_config "empty SLEUTHER_KEEP_ALIVE value; using 10m"
+    SLEUTHER_KEEP_ALIVE="10m"
+fi
+
+if ! _sl_is_loopback_url "$SLEUTHER_OLLAMA_URL"; then
+    _sl_warn_config "non-local SLEUTHER_OLLAMA_URL blocked; using http://localhost:11434"
+    SLEUTHER_OLLAMA_URL="http://localhost:11434"
 fi
 
 # ─── Internals ───────────────────────────────────────────────────────────────
@@ -103,9 +141,6 @@ typeset -g _SL_RESPONSE_FORMAT='Respond in this EXACT format using markdown head
 _sl_analyze() {
     local cmd="$1" exit_code="$2" output="$3"
 
-    # Silently bail if Ollama is down
-    curl -s --max-time 2 "$SLEUTHER_OLLAMA_URL/api/tags" >/dev/null 2>&1 || return
-
     local lang=$(_sl_detect_language "$cmd" "$output")
     local system_prompt=$(_sl_system_prompt "$lang")
     local user_prompt="Command: $cmd
@@ -160,7 +195,7 @@ sleuther() {
 
     local lang=$(_sl_detect_language "" "$input")
     local system_prompt=$(_sl_system_prompt "$lang")
-    local user_prompt="Error output:
+    local user_prompt="Manual error report:
 $input
 
 $_SL_RESPONSE_FORMAT"
