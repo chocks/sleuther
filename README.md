@@ -1,146 +1,144 @@
 # sleuther
 
-Your command fails. Two seconds later, you know why — and the fix is one keystroke away.
+Local terminal error triage for Oh My Zsh, backed by Ollama.
 
-<!-- Replace with your terminal recording -->
+When a command fails, `sleuther` can explain the likely root cause and suggest one safe next command. By default it stays local, asks before running anything, and falls back to a manual mode when the shell cannot provide enough context.
+
 ![sleuther demo](assets/demo.gif)
 
-A zsh plugin that watches for failed commands and instantly explains what went wrong using a local LLM. No cloud, no API keys, no data leaves your machine.
+## What It Actually Does
 
----
+- Watches failed commands through zsh hooks.
+- Sends the failed command, exit code, and available context to your local Ollama server.
+- Renders the model response in the terminal.
+- Optionally offers one suggested command for you to approve.
+- Provides a manual `sleuther "paste the error here"` path when you want richer context.
+
+Important limitation: zsh hooks do not expose the previous command's stdout/stderr. Auto mode does not replay the failed command, so the model usually sees only the command text and exit code unless you paste the error yourself.
 
 ## Quick Start
 
-**Prerequisites:** [Oh My Zsh](https://ohmyz.sh/) + [Ollama](https://ollama.com/download) + `curl`
+Prerequisites:
+
+- [Oh My Zsh](https://ohmyz.sh/)
+- [Ollama](https://ollama.com/download)
+- `curl`
+- `python3`
+
+Install:
 
 ```bash
-# Install the plugin
 git clone https://github.com/chocks/sleuther \
   ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/sleuther
+```
 
-# Add to your plugins list in ~/.zshrc
-plugins=(... sleuther ...)
+Add `sleuther` to your `plugins=(...)` list in `~/.zshrc`, then pull the default model and reload your shell:
 
-# Pull the model and restart your shell
+```bash
 ollama pull qwen2.5-coder:7b
 source ~/.zshrc
 ```
 
-That's it. Break something and watch.
+You can also run the bundled helper:
 
----
-
-## What Happens When a Command Fails
-
+```bash
+${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/sleuther/bin/ollama-helper setup
 ```
+
+## Usage
+
+Automatic mode:
+
+```bash
 $ npm install
 npm ERR! enoent Could not read package.json
-
-  ⚠️  Debug suggestion:
-  Root cause: No package.json found in the current directory
-  Fix: Initialize a new Node.js project or cd to the project root
-  Next: npm init -y
-
-  Run npm init -y ? [y/n]
 ```
 
-Press `y` to run the fix. Press `n` to skip.
+If the command exits non-zero, `sleuther` may show:
 
-After two failed attempts on the same error, sleuther offers a **sanitized version** (stripped of usernames, paths, hostnames) you can paste into ChatGPT or Claude for a second opinion — with one-keystroke clipboard copy.
+- `Root Cause`
+- `Fix`
+- `Suggested Command`
 
-You can also debug errors manually:
+Manual mode:
 
 ```bash
 sleuther "ModuleNotFoundError: No module named 'pandas'"
 ```
 
-If Ollama isn't running, the auto-trigger stays silent. The manual `sleuther` command tells you what's wrong.
+Use manual mode whenever the exact stderr matters.
 
----
+## Safety Model
 
-## Safety and Privacy
+- Default endpoint is local: `http://localhost:11434`.
+- Non-local Ollama URLs are rejected and reset to `http://localhost:11434`.
+- Suggested commands are executed as argv tokens via zsh parsing, not `eval`.
+- Suggested commands must be a single command. Chaining, pipes, redirection, subshells, and interpolation are blocked.
+- Commands that look destructive, privileged, network-oriented, or remotely controlled are blocked from execution.
+- `SLEUTHER_AUTO_RUN` is off by default. Leave it off unless you accept the risk of running model-generated commands automatically.
 
-**Everything stays local.** Errors are sent to your Ollama instance on localhost and nowhere else.
+This reduces risk; it does not make model output trustworthy. Always review the suggested command before accepting it.
 
-**No eval.** Suggested commands are executed via zsh word-splitting (`${(z)}`), not `eval`. Subshell injection like `npm install $(rm -rf ~)` is impossible — it becomes a harmless literal argument.
+## Privacy
 
-**Dangerous commands are blocked.** A built-in blocklist catches destructive patterns (`rm -rf /`, `curl | sh`, `mkfs`, etc.) before they're even offered to you. Blocked commands are shown but cannot be executed.
+Data goes only to your local Ollama instance. If `SLEUTHER_OLLAMA_URL` is set to a non-loopback address, `sleuther` ignores it and resets to `http://localhost:11434`.
 
-**Config can't run code.** The config file is parsed as key-value pairs with a strict whitelist — not `source`'d.
+After rejecting the same cached suggestion twice, `sleuther` offers a sanitized report you can paste into another tool. The sanitizer currently removes:
 
-**Cache is private.** Cache directory is set to `chmod 700` (owner-only access), even on shared systems.
+- home directory and username
+- hostname
+- common email addresses
+- IPv4 addresses
+- simple `token=` / `password=` style secrets
 
----
+Treat the sanitized export as best-effort, not guaranteed redaction.
 
 ## Configuration
 
-Works out of the box. To override defaults, create `~/.config/sleuther/config`:
+Create `~/.config/sleuther/config`:
 
 ```bash
-SLEUTHER_MODEL="mistral:7b"
+SLEUTHER_MODEL="qwen2.5-coder:7b"
 SLEUTHER_AUTO_RUN=false
 SLEUTHER_OLLAMA_URL="http://localhost:11434"
-SLEUTHER_TIMEOUT=15
+SLEUTHER_TIMEOUT=30
+SLEUTHER_KEEP_ALIVE="10m"
 ```
 
-| Setting             | Default                  | What it does            |
-|---------------------|--------------------------|-------------------------|
-| `SLEUTHER_MODEL`    | `qwen2.5-coder:7b`      | Ollama model name       |
-| `SLEUTHER_AUTO_RUN` | `false`                  | Auto-execute fixes      |
-| `SLEUTHER_OLLAMA_URL` | `http://localhost:11434` | Ollama endpoint       |
-| `SLEUTHER_TIMEOUT`  | `15`                     | Request timeout (secs)  |
+Settings:
 
-### Rich Output with Glow
+| Setting | Default | Notes |
+|---|---|---|
+| `SLEUTHER_MODEL` | `qwen2.5-coder:7b` | Ollama model name |
+| `SLEUTHER_AUTO_RUN` | `false` | Auto-execute approved-safe suggestions |
+| `SLEUTHER_OLLAMA_URL` | `http://localhost:11434` | Ollama endpoint, loopback only |
+| `SLEUTHER_TIMEOUT` | `30` | Request timeout in seconds |
+| `SLEUTHER_KEEP_ALIVE` | `10m` | Ask Ollama to keep the model loaded between requests |
 
-Install [glow](https://github.com/charmbracelet/glow) for rendered markdown output. Sleuther auto-detects it — no config needed. Without glow, output falls back to ANSI formatting.
+Invalid config values are ignored and fall back to safe defaults.
 
-```bash
-brew install glow          # macOS
-sudo apt install glow      # Debian/Ubuntu
-```
+## Developer Notes
 
----
+- Entry point: [sleuther.plugin.zsh](/Users/chockalingameswaramurthy/Documents/repos/sleuther/sleuther.plugin.zsh)
+- Prompt and language routing: [lib/detect.zsh](/Users/chockalingameswaramurthy/Documents/repos/sleuther/lib/detect.zsh)
+- Ollama client: [lib/ollama.zsh](/Users/chockalingameswaramurthy/Documents/repos/sleuther/lib/ollama.zsh)
+- Execution guard: [lib/display.zsh](/Users/chockalingameswaramurthy/Documents/repos/sleuther/lib/display.zsh)
+- Sanitized export: [lib/sanitize.zsh](/Users/chockalingameswaramurthy/Documents/repos/sleuther/lib/sanitize.zsh)
 
-## Limitations
+For the repo layout and extension points, see [CONTRIBUTING.md](/Users/chockalingameswaramurthy/Documents/repos/sleuther/CONTRIBUTING.md).
 
-- **Zsh only.** This is an Oh My Zsh plugin. Bash/fish are not supported.
-- **Can't capture stdout/stderr.** Zsh doesn't expose the previous command's output to hooks. To avoid re-running failed commands (which can repeat side effects), sleuther sends the command + exit code to the LLM and relies on its reasoning. For richer context, use the manual `sleuther "paste error here"` command.
-- **Model size.** The default model (`qwen2.5-coder:7b`) needs ~4GB disk and runs well with 8GB RAM. Use `mistral:7b` on weaker hardware.
-- **Local model accuracy.** 7B models are good but not perfect. That's why sleuther offers the sanitized export after two failed attempts — grab a second opinion from a cloud model when you need it.
-- **Requires Ollama running.** If Ollama is stopped, auto-debug does nothing silently. Run `ollama serve` to start it.
+## Optional Rendering
 
----
-
-## Clear Cache
-
-Sleuther caches responses for 1 hour. To clear:
-
-```bash
-rm -rf ${TMPDIR:-/tmp}/sleuther-cache
-```
+If you install [glow](https://github.com/charmbracelet/glow), markdown output is rendered more cleanly. Without it, `sleuther` uses a built-in ANSI fallback.
 
 ## Uninstall
 
+Remove `sleuther` from `plugins=(...)`, delete the plugin directory, and optionally remove:
+
 ```bash
-# 1. Remove sleuther from plugins in ~/.zshrc
-plugins=(... )  # remove 'sleuther'
-
-# 2. Delete the plugin
-rm -rf ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/sleuther
-
-# 3. Remove config and cache (optional)
 rm -rf ~/.config/sleuther
 rm -rf ${TMPDIR:-/tmp}/sleuther-cache
-
-# 4. Restart shell
-source ~/.zshrc
 ```
-
----
-
-## Contributing
-
-See the [file structure](CONTRIBUTING.md) and language detection details if you'd like to add support for new languages or improve the plugin.
 
 ## License
 

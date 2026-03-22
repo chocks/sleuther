@@ -42,6 +42,10 @@ check_deps() {
     $ok
 }
 
+check_ollama_cli() {
+    command -v ollama >/dev/null 2>&1
+}
+
 setup() {
     echo ""
     echo "${B}${C}  sleuther — Oh My Zsh Plugin Setup${X}"
@@ -58,6 +62,11 @@ setup() {
     if ! check_model; then
         echo ""
         echo "${Y}  Pulling model...${X}"
+        if ! check_ollama_cli; then
+            echo "${R}  ✗ 'ollama' CLI not found in PATH.${X}"
+            echo "${D}  Install Ollama or pull the model from a shell where 'ollama' is available.${X}"
+            return 1
+        fi
         ollama pull "$MODEL"
     fi
     echo ""

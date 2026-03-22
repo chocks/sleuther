@@ -22,24 +22,56 @@ _sl_extract_command() {
 
 # Blocklist of dangerous patterns that should never be executed
 _sl_command_is_safe() {
-    local cmd="$1"
+    local cmd="$1" orig_cmd="$2"
 
-    # Block commands with embedded subshells — primary injection vector
-    if [[ "$cmd" == *'$('* ]] || [[ "$cmd" == *'`'* ]]; then
+    [[ -z "$cmd" ]] && return 1
+
+    # Block shell control operators and redirection.
+    if [[ "$cmd" == *';'* || "$cmd" == *'&&'* || "$cmd" == *'||'* || \
+          "$cmd" == *'|'* || "$cmd" == *'<'* || "$cmd" == *'>'* || \
+          "$cmd" == *'&'* ]]; then
         return 1
     fi
 
-    # Block destructive patterns
+    # Block commands with embedded subshells or shell interpolation markers.
+    if [[ "$cmd" == *'$('* || "$cmd" == *'`'* || "$cmd" == *'${'* ]]; then
+        return 1
+    fi
+
+    # Block destructive or remote-control patterns.
     local -a blocked=(
+        ' sudo '
+        ' doas '
         'rm -rf /'
         'rm -rf ~'
         'rm -rf $HOME'
         'rm -rf *'
+        'find /'
         'mkfs'
         'dd if='
-        '> /dev/sd'
-        '> /dev/nvme'
+        'diskutil eraseDisk'
         'chmod -R 777 /'
+        'chown -R '
+        'shutdown'
+        'reboot'
+        'poweroff'
+        'launchctl'
+        'systemctl'
+        'service '
+        'ssh '
+        'scp '
+        'rsync '
+        'nc '
+        'ncat '
+        'netcat '
+        'curl '
+        'wget '
+        'python -c'
+        'python3 -c'
+        'perl -e'
+        'ruby -e'
+        'node -e'
+        'osascript '
         ':(){ :|:& };:'
     )
 
@@ -50,8 +82,7 @@ _sl_command_is_safe() {
         fi
     done
 
-    # Block pipe-to-shell patterns (curl ... | sh, wget ... | bash, etc.)
-    if [[ "$cmd" =~ '(curl|wget).*\|.*(sh|bash|zsh)' ]]; then
+    if [[ "$orig_cmd" != sudo\ * && "$cmd" == sudo\ * ]]; then
         return 1
     fi
 
@@ -79,7 +110,7 @@ _sl_display() {
 
     # Offer to run the suggested command
     if [[ -n "$next_cmd" ]]; then
-        if ! _sl_command_is_safe "$next_cmd"; then
+        if ! _sl_command_is_safe "$next_cmd" "$orig_cmd"; then
             printf "\n  ${_SL_RED}${_SL_BOLD}Blocked:${_SL_RESET} ${_SL_DIM}%s${_SL_RESET}\n" "$next_cmd"
             printf "  ${_SL_RED}This command was flagged as potentially dangerous. Copy and review manually.${_SL_RESET}\n"
         else

@@ -7,6 +7,9 @@ _sl_sanitize() {
     local user="${USER:-$(whoami)}"
     local home="$HOME"
     local host="${HOST:-$(hostname -s 2>/dev/null)}"
+    local email_regex='[[:alnum:]._%+-]+@[[:alnum:].-]+\.[[:alpha:]]{2,}'
+    local ipv4_regex='([0-9]{1,3}\.){3}[0-9]{1,3}'
+    local secret_regex='(api[-_ ]?key|token|secret|password|passwd)=([^[:space:]]+)'
 
     # Replace home directory first (most specific path)
     text="${text//$home/~}"
@@ -20,6 +23,11 @@ _sl_sanitize() {
     if [[ -n "$host" ]]; then
         text="${text//$host/<host>}"
     fi
+
+    text=$(printf '%s' "$text" | sed -E \
+        -e "s/${email_regex}/<email>/g" \
+        -e "s/${ipv4_regex}/<ip>/g" \
+        -e "s/${secret_regex}/\1=<redacted>/gi")
 
     echo "$text"
 }
